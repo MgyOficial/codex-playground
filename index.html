@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulador básico de nómina Colombia</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Simulador básico de nómina Colombia</h1>
+    <p>Calculadora educativa y referencial (COP).</p>
+  </header>
+
+  <main>
+    <section class="card" aria-label="Formulario">
+      <h2>Datos de entrada</h2>
+      <div class="form-grid">
+        <div>
+          <label for="salario">Salario básico mensual (COP)</label>
+          <input id="salario" type="number" min="0" step="1000" value="1300000" />
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="dias">Días laborados (1 a 30)</label>
+            <input id="dias" type="number" min="1" max="30" value="30" />
+          </div>
+          <div>
+            <label for="tipo">Tipo de nómina</label>
+            <select id="tipo">
+              <option value="mensual" selected>Mensual</option>
+              <option value="quincenal">Quincenal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="auxilioToggle">Auxilio de transporte</label>
+            <select id="auxilioToggle">
+              <option value="si" selected>Sí</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div>
+            <label for="auxilioValor">Valor auxilio (COP)</label>
+            <input id="auxilioValor" type="number" min="0" step="1000" value="162000" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="extraDiurna">Horas extra diurnas</label>
+            <input id="extraDiurna" type="number" min="0" max="200" value="0" />
+          </div>
+          <div>
+            <label for="extraNocturna">Horas extra nocturnas</label>
+            <input id="extraNocturna" type="number" min="0" max="200" value="0" />
+          </div>
+        </div>
+
+        <div>
+          <label for="recargo">Recargos dominical/festivo (horas)</label>
+          <input id="recargo" type="number" min="0" max="200" value="0" />
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="bonificacion">Bonificación salarial (COP)</label>
+            <input id="bonificacion" type="number" min="0" step="1000" value="50000" />
+          </div>
+          <div>
+            <label for="otrasDeducciones">Otras deducciones (COP)</label>
+            <input id="otrasDeducciones" type="number" min="0" step="1000" value="10000" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="btnEjemplo">Ejemplo</button>
+          <button type="button" class="secondary" id="btnLimpiar">Limpiar</button>
+        </div>
+        <p class="hint">*Todos los valores deben ser positivos. Las horas máximas sugeridas son 200.</p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Carga masiva">
+      <h2>Liquidador masivo (Excel .xlsx)</h2>
+      <div class="form-grid">
+        <div class="actions">
+          <button type="button" id="btnDescargarPlantilla">Descargar plantilla</button>
+          <input id="archivoNomina" type="file" accept=".xlsx" />
+        </div>
+        <div class="actions">
+          <button type="button" class="secondary" id="btnProcesar">Procesar liquidación</button>
+          <button type="button" class="secondary" id="btnDescargarResultados">Descargar liquidación</button>
+        </div>
+        <p class="hint">Descarga la plantilla, llénala en Excel y súbela aquí para calcular cada empleado.</p>
+        <div class="alert" id="erroresCarga" role="alert"></div>
+        <div>
+          <h3>Vista previa</h3>
+          <div class="table-wrapper">
+            <table class="table" aria-label="Vista previa de Excel">
+              <thead id="previewHead"></thead>
+              <tbody id="previewBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button type="button" class="secondary" id="btnPrevio">Anterior</button>
+            <span id="paginaActual">Página 1</span>
+            <button type="button" class="secondary" id="btnSiguiente">Siguiente</button>
+          </div>
+        </div>
+        <div>
+          <h3>Resultados</h3>
+          <div class="table-wrapper">
+            <table class="table" aria-label="Resultados masivos">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Salario proporcional</th>
+                  <th>Auxilio</th>
+                  <th>Extras</th>
+                  <th>Bonificación</th>
+                  <th>Total devengado</th>
+                  <th>Deducciones</th>
+                  <th>Neto</th>
+                  <th>Costo empresa</th>
+                </tr>
+              </thead>
+              <tbody id="tablaMasiva"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Resumen">
+      <h2>Resumen de liquidación</h2>
+      <div class="summary-section">
+        <div>
+          <h3>Devengados</h3>
+          <div class="summary-table" id="devengados"></div>
+        </div>
+        <div>
+          <h3>Deducciones</h3>
+          <div class="summary-table" id="deducciones"></div>
+        </div>
+        <div>
+          <h3>Totales</h3>
+          <div class="summary-table" id="totales"></div>
+        </div>
+        <button type="button" class="secondary" id="btnCostos">Costos del empleador</button>
+        <div class="notice">Aviso: simulador educativo y referencial, no reemplaza asesoría contable.</div>
+      </div>
+      <div class="dashboard">
+        <h3>Mini dashboard</h3>
+        <div class="summary-table" id="dashboardTotales"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>Cómo ejecutar:</strong> abre este archivo <code>index.html</code> en tu navegador (doble clic o arrastra al navegador).</p>
+    <p><strong>Supuestos del modelo:</strong> IBC = salario proporcional + extras + bonificación (sin auxilio). Salud y pensión = 4% cada una. Valor hora base = salario mensual / 240. Factores: extra diurna 1.25, extra nocturna 1.75, dominical/festivo 1.75. Cálculos simplificados.</p>
+  </footer>
+
+  <div class="modal" id="modalCostos" aria-hidden="true" role="dialog" aria-labelledby="modalTitulo">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitulo">Costos del empleador</h3>
+        <button type="button" class="icon-button" id="btnCerrarModal" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="summary-table" id="costosEmpleador"></div>
+      <p class="hint">Supuesto: aportes empleador simplificados sobre IBC. Ajusta según normativa vigente.</p>
+    </div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
