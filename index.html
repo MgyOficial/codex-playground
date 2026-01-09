@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Simulador básico de nómina Colombia</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <header>
@@ -83,6 +84,34 @@
       </div>
     </section>
 
+    <section class="card" aria-label="Carga masiva">
+      <h2>Liquidador masivo (Excel .xlsx)</h2>
+      <div class="form-grid">
+        <div class="actions">
+          <button type="button" id="btnDescargarPlantilla">Descargar plantilla</button>
+          <input id="archivoNomina" type="file" accept=".xlsx" />
+        </div>
+        <p class="hint">Descarga la plantilla, llénala en Excel y súbela aquí para calcular cada empleado.</p>
+        <div class="table-wrapper">
+          <table class="table" aria-label="Resultados masivos">
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Salario proporcional</th>
+                <th>Auxilio</th>
+                <th>Extras</th>
+                <th>Bonificación</th>
+                <th>Total devengado</th>
+                <th>Deducciones</th>
+                <th>Neto</th>
+              </tr>
+            </thead>
+            <tbody id="tablaMasiva"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="card" aria-label="Resumen">
       <h2>Resumen de liquidación</h2>
       <div class="summary-section">
@@ -120,6 +149,6 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="./script.js"></script>
 </body>
 </html>

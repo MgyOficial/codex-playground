@@ -18,6 +18,9 @@ const costosEmpleadorEl = document.getElementById("costosEmpleador");
 const modalCostos = document.getElementById("modalCostos");
 const btnCostos = document.getElementById("btnCostos");
 const btnCerrarModal = document.getElementById("btnCerrarModal");
+const btnDescargarPlantilla = document.getElementById("btnDescargarPlantilla");
+const archivoNomina = document.getElementById("archivoNomina");
+const tablaMasiva = document.getElementById("tablaMasiva");
 let ultimoResumen = null;
 
 const APORTES_EMPLEADOR = {
@@ -51,6 +54,32 @@ function calcular() {
   const bonificacion = leerNumero(campos.bonificacion, 0);
   const otrasDeducciones = leerNumero(campos.otrasDeducciones, 0);
 
+  const resultado = calcularNomina({
+    salarioMensual,
+    diasLaborados,
+    aplicaAuxilio,
+    auxilioBase,
+    horasExtraDiurna,
+    horasExtraNocturna,
+    horasRecargo,
+    bonificacion,
+    otrasDeducciones,
+  });
+
+  renderResumen(resultado);
+}
+
+function calcularNomina({
+  salarioMensual,
+  diasLaborados,
+  aplicaAuxilio,
+  auxilioBase,
+  horasExtraDiurna,
+  horasExtraNocturna,
+  horasRecargo,
+  bonificacion,
+  otrasDeducciones,
+}) {
   // Fórmula: salario proporcional = salario mensual * (días laborados / 30)
   const salarioProporcional = salarioMensual * (diasLaborados / 30);
   // Fórmula: auxilio proporcional = auxilio * (días laborados / 30)
@@ -74,7 +103,7 @@ function calcular() {
   const totalDeducciones = salud + pension + otrasDeducciones;
   const netoPagar = totalDevengado - totalDeducciones;
 
-  renderResumen({
+  return {
     salarioProporcional,
     diasLaborados,
     auxilioTransporte,
@@ -89,7 +118,8 @@ function calcular() {
     otrasDeducciones,
     totalDeducciones,
     netoPagar,
-  });
+    extrasTotal,
+  };
 }
 
 function renderResumen(data) {
@@ -186,6 +216,103 @@ function cargarEjemplo() {
   calcular();
 }
 
+function descargarPlantilla() {
+  const encabezados = [
+    "empleado",
+    "salario_mensual",
+    "dias_laborados",
+    "auxilio_transporte",
+    "auxilio_valor",
+    "extra_diurna_horas",
+    "extra_nocturna_horas",
+    "recargo_horas",
+    "bonificacion",
+    "otras_deducciones",
+  ];
+  const ejemplo = [
+    "Empleado Ejemplo",
+    "1300000",
+    "30",
+    "si",
+    "162000",
+    "8",
+    "4",
+    "4",
+    "50000",
+    "10000",
+  ];
+  const hoja = XLSX.utils.aoa_to_sheet([encabezados, ejemplo]);
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, "Plantilla");
+  XLSX.writeFile(libro, "plantilla_nomina.xlsx");
+}
+
+function importarNomina(evento) {
+  const archivo = evento.target.files?.[0];
+  if (!archivo) return;
+
+  const lector = new FileReader();
+  lector.onload = (e) => {
+    const data = new Uint8Array(e.target.result || []);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const filas = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    if (filas.length < 2) return;
+
+    const encabezados = filas[0].map((columna) => columna.toLowerCase());
+    const resultados = filas.slice(1).map((fila) => {
+      const datos = Object.fromEntries(encabezados.map((col, i) => [col, fila[i] || ""]));
+      const salarioMensual = Number(datos.salario_mensual || 0);
+      const diasLaborados = clamp(Number(datos.dias_laborados || 0), 1, 30);
+      const aplicaAuxilio = String(datos.auxilio_transporte || "").toLowerCase() === "si";
+      const auxilioBase = Number(datos.auxilio_valor || 0);
+      const horasExtraDiurna = clamp(Number(datos.extra_diurna_horas || 0), 0, 200);
+      const horasExtraNocturna = clamp(Number(datos.extra_nocturna_horas || 0), 0, 200);
+      const horasRecargo = clamp(Number(datos.recargo_horas || 0), 0, 200);
+      const bonificacion = Number(datos.bonificacion || 0);
+      const otrasDeducciones = Number(datos.otras_deducciones || 0);
+      const empleado = datos.empleado || "Sin nombre";
+
+      return {
+        empleado,
+        ...calcularNomina({
+          salarioMensual,
+          diasLaborados,
+          aplicaAuxilio,
+          auxilioBase,
+          horasExtraDiurna,
+          horasExtraNocturna,
+          horasRecargo,
+          bonificacion,
+          otrasDeducciones,
+        }),
+      };
+    });
+
+    renderMasivo(resultados);
+  };
+  lector.readAsArrayBuffer(archivo);
+}
+
+function renderMasivo(resultados) {
+  tablaMasiva.innerHTML = "";
+  resultados.forEach((resultado) => {
+    const fila = document.createElement("tr");
+    fila.innerHTML = `
+      <td>${resultado.empleado}</td>
+      <td>${formatoCOP.format(resultado.salarioProporcional)}</td>
+      <td>${formatoCOP.format(resultado.auxilioTransporte)}</td>
+      <td>${formatoCOP.format(resultado.extrasTotal)}</td>
+      <td>${formatoCOP.format(resultado.bonificacion)}</td>
+      <td>${formatoCOP.format(resultado.totalDevengado)}</td>
+      <td>${formatoCOP.format(resultado.totalDeducciones)}</td>
+      <td>${formatoCOP.format(resultado.netoPagar)}</td>
+    `;
+    tablaMasiva.appendChild(fila);
+  });
+}
+
 Object.values(campos).forEach((campo) => {
   campo.addEventListener("input", calcular);
   campo.addEventListener("change", calcular);
@@ -211,5 +338,11 @@ document.addEventListener("keydown", (event) => {
     cerrarModal();
   }
 });
+if (btnDescargarPlantilla) {
+  btnDescargarPlantilla.addEventListener("click", descargarPlantilla);
+}
+if (archivoNomina) {
+  archivoNomina.addEventListener("change", importarNomina);
+}
 
 calcular();
