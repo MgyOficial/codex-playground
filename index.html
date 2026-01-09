@@ -98,6 +98,7 @@
           <h3>Totales</h3>
           <div class="summary-table" id="totales"></div>
         </div>
+        <button type="button" class="secondary" id="btnCostos">Costos del empleador</button>
         <div class="notice">Aviso: simulador educativo y referencial, no reemplaza asesoría contable.</div>
       </div>
     </section>
@@ -107,6 +108,17 @@
     <p><strong>Cómo ejecutar:</strong> abre este archivo <code>index.html</code> en tu navegador (doble clic o arrastra al navegador).</p>
     <p><strong>Supuestos del modelo:</strong> IBC = salario proporcional + extras + bonificación (sin auxilio). Salud y pensión = 4% cada una. Valor hora base = salario mensual / 240. Factores: extra diurna 1.25, extra nocturna 1.75, dominical/festivo 1.75. Cálculos simplificados.</p>
   </footer>
+
+  <div class="modal" id="modalCostos" aria-hidden="true" role="dialog" aria-labelledby="modalTitulo">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitulo">Costos del empleador</h3>
+        <button type="button" class="icon-button" id="btnCerrarModal" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="summary-table" id="costosEmpleador"></div>
+      <p class="hint">Supuesto: aportes empleador simplificados sobre IBC. Ajusta según normativa vigente.</p>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>

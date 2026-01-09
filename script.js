@@ -14,6 +14,17 @@ const campos = {
 const devengadosEl = document.getElementById("devengados");
 const deduccionesEl = document.getElementById("deducciones");
 const totalesEl = document.getElementById("totales");
+const costosEmpleadorEl = document.getElementById("costosEmpleador");
+const modalCostos = document.getElementById("modalCostos");
+const btnCostos = document.getElementById("btnCostos");
+const btnCerrarModal = document.getElementById("btnCerrarModal");
+let ultimoResumen = null;
+
+const APORTES_EMPLEADOR = {
+  salud: 0.085,
+  pension: 0.12,
+  arl: 0.005,
+};
 
 const formatoCOP = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -72,6 +83,7 @@ function calcular() {
     valorRecargo,
     bonificacion,
     totalDevengado,
+    ibc,
     salud,
     pension,
     otrasDeducciones,
@@ -84,6 +96,8 @@ function renderResumen(data) {
   devengadosEl.innerHTML = "";
   deduccionesEl.innerHTML = "";
   totalesEl.innerHTML = "";
+  costosEmpleadorEl.innerHTML = "";
+  ultimoResumen = data;
 
   const agregarFila = (contenedor, etiqueta, valor, enfatizar = false) => {
     const fila = document.createElement("div");
@@ -106,6 +120,44 @@ function renderResumen(data) {
   agregarFila(deduccionesEl, "Total deducciones", data.totalDeducciones, true);
 
   agregarFila(totalesEl, "Neto a pagar", data.netoPagar, true);
+  renderCostosEmpleador(data);
+}
+
+function renderCostosEmpleador(data) {
+  const aporteSalud = data.ibc * APORTES_EMPLEADOR.salud;
+  const aportePension = data.ibc * APORTES_EMPLEADOR.pension;
+  const aporteArl = data.ibc * APORTES_EMPLEADOR.arl;
+  const totalAportes = aporteSalud + aportePension + aporteArl;
+  const totalEmpresa = data.totalDevengado + totalAportes;
+
+  const agregarFila = (contenedor, etiqueta, valor, enfatizar = false) => {
+    const fila = document.createElement("div");
+    fila.className = "summary-row" + (enfatizar ? " total" : "");
+    fila.innerHTML = `<span>${etiqueta}</span><strong>${formatoCOP.format(valor)}</strong>`;
+    contenedor.appendChild(fila);
+  };
+
+  agregarFila(costosEmpleadorEl, "IBC empleado", data.ibc);
+  agregarFila(costosEmpleadorEl, "Aporte salud (8.5%)", aporteSalud);
+  agregarFila(costosEmpleadorEl, "Aporte pensión (12%)", aportePension);
+  agregarFila(costosEmpleadorEl, "ARL estimado (0.5%)", aporteArl);
+  agregarFila(costosEmpleadorEl, "Total aportes empleador", totalAportes, true);
+  agregarFila(costosEmpleadorEl, "Costo total empresa", totalEmpresa, true);
+}
+
+function abrirModal() {
+  if (!modalCostos) return;
+  if (ultimoResumen) {
+    renderCostosEmpleador(ultimoResumen);
+  }
+  modalCostos.classList.add("is-open");
+  modalCostos.setAttribute("aria-hidden", "false");
+}
+
+function cerrarModal() {
+  if (!modalCostos) return;
+  modalCostos.classList.remove("is-open");
+  modalCostos.setAttribute("aria-hidden", "true");
 }
 
 function limpiarFormulario() {
@@ -141,5 +193,23 @@ Object.values(campos).forEach((campo) => {
 
 document.getElementById("btnLimpiar").addEventListener("click", limpiarFormulario);
 document.getElementById("btnEjemplo").addEventListener("click", cargarEjemplo);
+if (btnCostos) {
+  btnCostos.addEventListener("click", abrirModal);
+}
+if (btnCerrarModal) {
+  btnCerrarModal.addEventListener("click", cerrarModal);
+}
+if (modalCostos) {
+  modalCostos.addEventListener("click", (event) => {
+    if (event.target === modalCostos) {
+      cerrarModal();
+    }
+  });
+}
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    cerrarModal();
+  }
+});
 
 calcular();
