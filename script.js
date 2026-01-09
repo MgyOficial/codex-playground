@@ -16,6 +16,8 @@ const deduccionesEl = document.getElementById("deducciones");
 const totalesEl = document.getElementById("totales");
 const costosEmpleadorEl = document.getElementById("costosEmpleador");
 const modalCostos = document.getElementById("modalCostos");
+const btnCostos = document.getElementById("btnCostos");
+const btnCerrarModal = document.getElementById("btnCerrarModal");
 let ultimoResumen = null;
 
 const APORTES_EMPLEADOR = {
@@ -191,8 +193,12 @@ Object.values(campos).forEach((campo) => {
 
 document.getElementById("btnLimpiar").addEventListener("click", limpiarFormulario);
 document.getElementById("btnEjemplo").addEventListener("click", cargarEjemplo);
-document.getElementById("btnCostos").addEventListener("click", abrirModal);
-document.getElementById("btnCerrarModal").addEventListener("click", cerrarModal);
+if (btnCostos) {
+  btnCostos.addEventListener("click", abrirModal);
+}
+if (btnCerrarModal) {
+  btnCerrarModal.addEventListener("click", cerrarModal);
+}
 if (modalCostos) {
   modalCostos.addEventListener("click", (event) => {
     if (event.target === modalCostos) {
