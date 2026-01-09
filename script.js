@@ -16,6 +16,7 @@ const deduccionesEl = document.getElementById("deducciones");
 const totalesEl = document.getElementById("totales");
 const costosEmpleadorEl = document.getElementById("costosEmpleador");
 const modalCostos = document.getElementById("modalCostos");
+let ultimoResumen = null;
 
 const APORTES_EMPLEADOR = {
   salud: 0.085,
@@ -94,6 +95,7 @@ function renderResumen(data) {
   deduccionesEl.innerHTML = "";
   totalesEl.innerHTML = "";
   costosEmpleadorEl.innerHTML = "";
+  ultimoResumen = data;
 
   const agregarFila = (contenedor, etiqueta, valor, enfatizar = false) => {
     const fila = document.createElement("div");
@@ -142,11 +144,16 @@ function renderCostosEmpleador(data) {
 }
 
 function abrirModal() {
+  if (!modalCostos) return;
+  if (ultimoResumen) {
+    renderCostosEmpleador(ultimoResumen);
+  }
   modalCostos.classList.add("is-open");
   modalCostos.setAttribute("aria-hidden", "false");
 }
 
 function cerrarModal() {
+  if (!modalCostos) return;
   modalCostos.classList.remove("is-open");
   modalCostos.setAttribute("aria-hidden", "true");
 }
@@ -186,8 +193,15 @@ document.getElementById("btnLimpiar").addEventListener("click", limpiarFormulari
 document.getElementById("btnEjemplo").addEventListener("click", cargarEjemplo);
 document.getElementById("btnCostos").addEventListener("click", abrirModal);
 document.getElementById("btnCerrarModal").addEventListener("click", cerrarModal);
-modalCostos.addEventListener("click", (event) => {
-  if (event.target === modalCostos) {
+if (modalCostos) {
+  modalCostos.addEventListener("click", (event) => {
+    if (event.target === modalCostos) {
+      cerrarModal();
+    }
+  });
+}
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
     cerrarModal();
   }
 });
