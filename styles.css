@@ -93,6 +93,7 @@ select {
   display: flex;
   gap: 12px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 button {
@@ -148,6 +149,20 @@ button.secondary {
   color: #92400e;
 }
 
+.alert {
+  display: none;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.alert.is-visible {
+  display: block;
+}
+
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
@@ -176,6 +191,40 @@ button.secondary {
 
 .table tbody tr:nth-child(even) {
   background: #f8fafc;
+}
+
+.table tbody tr {
+  cursor: pointer;
+}
+
+.table tbody tr.is-active {
+  background: #dbeafe;
+}
+
+.table td.is-invalid {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.dashboard {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: #f8fafc;
+  position: sticky;
+  top: 16px;
 }
 
 .table tbody tr:last-child td {
@@ -234,5 +283,11 @@ footer {
 @media (max-width: 640px) {
   .row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  main {
+    grid-template-columns: 1fr 1.6fr 1fr;
   }
 }

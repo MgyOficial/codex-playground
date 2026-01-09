@@ -31,6 +31,7 @@
             <label for="tipo">Tipo de nómina</label>
             <select id="tipo">
               <option value="mensual" selected>Mensual</option>
+              <option value="quincenal">Quincenal</option>
             </select>
           </div>
         </div>
@@ -91,23 +92,47 @@
           <button type="button" id="btnDescargarPlantilla">Descargar plantilla</button>
           <input id="archivoNomina" type="file" accept=".xlsx" />
         </div>
+        <div class="actions">
+          <button type="button" class="secondary" id="btnProcesar">Procesar liquidación</button>
+          <button type="button" class="secondary" id="btnDescargarResultados">Descargar liquidación</button>
+        </div>
         <p class="hint">Descarga la plantilla, llénala en Excel y súbela aquí para calcular cada empleado.</p>
-        <div class="table-wrapper">
-          <table class="table" aria-label="Resultados masivos">
-            <thead>
-              <tr>
-                <th>Empleado</th>
-                <th>Salario proporcional</th>
-                <th>Auxilio</th>
-                <th>Extras</th>
-                <th>Bonificación</th>
-                <th>Total devengado</th>
-                <th>Deducciones</th>
-                <th>Neto</th>
-              </tr>
-            </thead>
-            <tbody id="tablaMasiva"></tbody>
-          </table>
+        <div class="alert" id="erroresCarga" role="alert"></div>
+        <div>
+          <h3>Vista previa</h3>
+          <div class="table-wrapper">
+            <table class="table" aria-label="Vista previa de Excel">
+              <thead id="previewHead"></thead>
+              <tbody id="previewBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button type="button" class="secondary" id="btnPrevio">Anterior</button>
+            <span id="paginaActual">Página 1</span>
+            <button type="button" class="secondary" id="btnSiguiente">Siguiente</button>
+          </div>
+        </div>
+        <div>
+          <h3>Resultados</h3>
+          <div class="table-wrapper">
+            <table class="table" aria-label="Resultados masivos">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Salario proporcional</th>
+                  <th>Auxilio</th>
+                  <th>Extras</th>
+                  <th>Bonificación</th>
+                  <th>Total devengado</th>
+                  <th>Deducciones</th>
+                  <th>Neto</th>
+                  <th>Costo empresa</th>
+                </tr>
+              </thead>
+              <tbody id="tablaMasiva"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -129,6 +154,10 @@
         </div>
         <button type="button" class="secondary" id="btnCostos">Costos del empleador</button>
         <div class="notice">Aviso: simulador educativo y referencial, no reemplaza asesoría contable.</div>
+      </div>
+      <div class="dashboard">
+        <h3>Mini dashboard</h3>
+        <div class="summary-table" id="dashboardTotales"></div>
       </div>
     </section>
   </main>

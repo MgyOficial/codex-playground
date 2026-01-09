@@ -20,8 +20,24 @@ const btnCostos = document.getElementById("btnCostos");
 const btnCerrarModal = document.getElementById("btnCerrarModal");
 const btnDescargarPlantilla = document.getElementById("btnDescargarPlantilla");
 const archivoNomina = document.getElementById("archivoNomina");
+const btnProcesar = document.getElementById("btnProcesar");
+const btnDescargarResultados = document.getElementById("btnDescargarResultados");
+const previewHead = document.getElementById("previewHead");
+const previewBody = document.getElementById("previewBody");
+const btnPrevio = document.getElementById("btnPrevio");
+const btnSiguiente = document.getElementById("btnSiguiente");
+const paginaActual = document.getElementById("paginaActual");
+const erroresCarga = document.getElementById("erroresCarga");
 const tablaMasiva = document.getElementById("tablaMasiva");
+const dashboardTotales = document.getElementById("dashboardTotales");
+
 let ultimoResumen = null;
+let previewRows = [];
+let previewErrors = [];
+let processedRows = [];
+let selectedRow = null;
+let currentPage = 1;
+const rowsPerPage = 5;
 
 const APORTES_EMPLEADOR = {
   salud: 0.085,
@@ -35,12 +51,37 @@ const formatoCOP = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
+const REQUIRED_HEADERS = [
+  "empleado_id",
+  "nombre",
+  "salario_basico_mensual",
+  "dias_laborados",
+  "tipo_nomina",
+  "aux_transporte",
+  "valor_auxilio",
+  "horas_extra_diurnas",
+  "horas_extra_nocturnas",
+  "recargo_dom_fest_horas",
+  "bonificacion",
+  "otras_deducciones",
+];
+
 const clamp = (valor, min, max) => Math.min(Math.max(valor, min), max);
 
 function leerNumero(input, min = 0, max = Number.POSITIVE_INFINITY) {
   const valor = Number(input.value);
   if (Number.isNaN(valor)) return min;
   return clamp(valor, min, max);
+}
+
+function normalizarTipoNomina(valor) {
+  const normalizado = String(valor || "").trim().toLowerCase();
+  return normalizado === "quincenal" ? "quincenal" : "mensual";
+}
+
+function normalizarSiNo(valor) {
+  const normalizado = String(valor || "").trim().toLowerCase();
+  return normalizado === "si" || normalizado === "sí" ? "si" : "no";
 }
 
 function calcular() {
@@ -57,6 +98,7 @@ function calcular() {
   const resultado = calcularNomina({
     salarioMensual,
     diasLaborados,
+    tipoNomina: normalizarTipoNomina(campos.tipo.value),
     aplicaAuxilio,
     auxilioBase,
     horasExtraDiurna,
@@ -72,6 +114,7 @@ function calcular() {
 function calcularNomina({
   salarioMensual,
   diasLaborados,
+  tipoNomina,
   aplicaAuxilio,
   auxilioBase,
   horasExtraDiurna,
@@ -80,10 +123,11 @@ function calcularNomina({
   bonificacion,
   otrasDeducciones,
 }) {
-  // Fórmula: salario proporcional = salario mensual * (días laborados / 30)
-  const salarioProporcional = salarioMensual * (diasLaborados / 30);
-  // Fórmula: auxilio proporcional = auxilio * (días laborados / 30)
-  const auxilioTransporte = aplicaAuxilio ? auxilioBase * (diasLaborados / 30) : 0;
+  const diasBase = tipoNomina === "quincenal" ? 15 : 30;
+  // Fórmula: salario proporcional = salario mensual * (días laborados / base)
+  const salarioProporcional = salarioMensual * (diasLaborados / diasBase);
+  // Fórmula: auxilio proporcional = auxilio * (días laborados / base)
+  const auxilioTransporte = aplicaAuxilio ? auxilioBase * (diasLaborados / diasBase) : 0;
   // Fórmula: valor hora base = salario mensual / 240 (aprox. 30 días * 8 horas)
   const valorHora = salarioMensual / 240;
 
@@ -103,6 +147,12 @@ function calcularNomina({
   const totalDeducciones = salud + pension + otrasDeducciones;
   const netoPagar = totalDevengado - totalDeducciones;
 
+  const aporteSalud = ibc * APORTES_EMPLEADOR.salud;
+  const aportePension = ibc * APORTES_EMPLEADOR.pension;
+  const aporteArl = ibc * APORTES_EMPLEADOR.arl;
+  const totalAportes = aporteSalud + aportePension + aporteArl;
+  const costoTotalEmpresa = totalDevengado + totalAportes;
+
   return {
     salarioProporcional,
     diasLaborados,
@@ -119,6 +169,11 @@ function calcularNomina({
     totalDeducciones,
     netoPagar,
     extrasTotal,
+    aporteSalud,
+    aportePension,
+    aporteArl,
+    totalAportes,
+    costoTotalEmpresa,
   };
 }
 
@@ -154,12 +209,7 @@ function renderResumen(data) {
 }
 
 function renderCostosEmpleador(data) {
-  const aporteSalud = data.ibc * APORTES_EMPLEADOR.salud;
-  const aportePension = data.ibc * APORTES_EMPLEADOR.pension;
-  const aporteArl = data.ibc * APORTES_EMPLEADOR.arl;
-  const totalAportes = aporteSalud + aportePension + aporteArl;
-  const totalEmpresa = data.totalDevengado + totalAportes;
-
+  costosEmpleadorEl.innerHTML = "";
   const agregarFila = (contenedor, etiqueta, valor, enfatizar = false) => {
     const fila = document.createElement("div");
     fila.className = "summary-row" + (enfatizar ? " total" : "");
@@ -168,11 +218,11 @@ function renderCostosEmpleador(data) {
   };
 
   agregarFila(costosEmpleadorEl, "IBC empleado", data.ibc);
-  agregarFila(costosEmpleadorEl, "Aporte salud (8.5%)", aporteSalud);
-  agregarFila(costosEmpleadorEl, "Aporte pensión (12%)", aportePension);
-  agregarFila(costosEmpleadorEl, "ARL estimado (0.5%)", aporteArl);
-  agregarFila(costosEmpleadorEl, "Total aportes empleador", totalAportes, true);
-  agregarFila(costosEmpleadorEl, "Costo total empresa", totalEmpresa, true);
+  agregarFila(costosEmpleadorEl, "Aporte salud (8.5%)", data.aporteSalud);
+  agregarFila(costosEmpleadorEl, "Aporte pensión (12%)", data.aportePension);
+  agregarFila(costosEmpleadorEl, "ARL estimado (0.5%)", data.aporteArl);
+  agregarFila(costosEmpleadorEl, "Total aportes empleador", data.totalAportes, true);
+  agregarFila(costosEmpleadorEl, "Costo total empresa", data.costoTotalEmpresa, true);
 }
 
 function abrirModal() {
@@ -216,40 +266,132 @@ function cargarEjemplo() {
   calcular();
 }
 
+function mostrarErrores(mensajes) {
+  if (!erroresCarga) return;
+  if (!mensajes.length) {
+    erroresCarga.textContent = "";
+    erroresCarga.classList.remove("is-visible");
+    return;
+  }
+  erroresCarga.textContent = mensajes.join(" ");
+  erroresCarga.classList.add("is-visible");
+}
+
 function descargarPlantilla() {
-  const encabezados = [
-    "empleado",
-    "salario_mensual",
-    "dias_laborados",
-    "auxilio_transporte",
-    "auxilio_valor",
-    "extra_diurna_horas",
-    "extra_nocturna_horas",
-    "recargo_horas",
-    "bonificacion",
-    "otras_deducciones",
-  ];
-  const ejemplo = [
-    "Empleado Ejemplo",
-    "1300000",
-    "30",
-    "si",
-    "162000",
-    "8",
-    "4",
-    "4",
-    "50000",
-    "10000",
-  ];
-  const hoja = XLSX.utils.aoa_to_sheet([encabezados, ejemplo]);
+  if (typeof XLSX === "undefined") {
+    alert("No se pudo cargar la librería XLSX. Revisa tu conexión a internet.");
+    return;
+  }
+  const hoja = XLSX.utils.aoa_to_sheet([REQUIRED_HEADERS]);
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, "Plantilla");
   XLSX.writeFile(libro, "plantilla_nomina.xlsx");
 }
 
+function validarEncabezados(encabezados) {
+  const normalizados = encabezados.map((col) => String(col || "").trim());
+  if (normalizados.length !== REQUIRED_HEADERS.length) {
+    return `La plantilla debe tener ${REQUIRED_HEADERS.length} columnas.`;
+  }
+  for (let i = 0; i < REQUIRED_HEADERS.length; i += 1) {
+    if (normalizados[i] !== REQUIRED_HEADERS[i]) {
+      return `Encabezado inválido en columna ${i + 1}: se esperaba "${REQUIRED_HEADERS[i]}".`;
+    }
+  }
+  return "";
+}
+
+function validarFila(fila) {
+  const errores = {};
+  const valores = Object.fromEntries(REQUIRED_HEADERS.map((col, i) => [col, fila[i]]));
+  const vacia = REQUIRED_HEADERS.every((col) => String(valores[col] || "").trim() === "");
+  if (vacia) {
+    errores._fila = "Fila vacía";
+    return { datos: valores, errores };
+  }
+
+  const numericos = [
+    "salario_basico_mensual",
+    "dias_laborados",
+    "valor_auxilio",
+    "horas_extra_diurnas",
+    "horas_extra_nocturnas",
+    "recargo_dom_fest_horas",
+    "bonificacion",
+    "otras_deducciones",
+  ];
+
+  numericos.forEach((campo) => {
+    const valor = Number(valores[campo]);
+    if (Number.isNaN(valor)) {
+      errores[campo] = "Debe ser numérico";
+    }
+  });
+
+  const salario = Number(valores.salario_basico_mensual);
+  if (!Number.isNaN(salario) && salario <= 0) {
+    errores.salario_basico_mensual = "Debe ser mayor a 0";
+  }
+
+  const auxilio = Number(valores.valor_auxilio);
+  if (!Number.isNaN(auxilio) && auxilio < 0) {
+    errores.valor_auxilio = "No puede ser negativo";
+  }
+
+  const bonificacion = Number(valores.bonificacion);
+  if (!Number.isNaN(bonificacion) && bonificacion < 0) {
+    errores.bonificacion = "No puede ser negativo";
+  }
+
+  const otras = Number(valores.otras_deducciones);
+  if (!Number.isNaN(otras) && otras < 0) {
+    errores.otras_deducciones = "No puede ser negativo";
+  }
+
+  const dias = Number(valores.dias_laborados);
+  if (!Number.isNaN(dias) && (dias < 1 || dias > 30)) {
+    errores.dias_laborados = "Días 1-30";
+  }
+
+  const horasCampos = [
+    "horas_extra_diurnas",
+    "horas_extra_nocturnas",
+    "recargo_dom_fest_horas",
+  ];
+  horasCampos.forEach((campo) => {
+    const valor = Number(valores[campo]);
+    if (!Number.isNaN(valor) && (valor < 0 || valor > 200)) {
+      errores[campo] = "Horas 0-200";
+    }
+  });
+
+  const tipoNomina = String(valores.tipo_nomina || "").trim();
+  if (tipoNomina !== "Mensual" && tipoNomina !== "Quincenal") {
+    errores.tipo_nomina = "Mensual o Quincenal";
+  }
+
+  const auxTransporte = String(valores.aux_transporte || "").trim();
+  if (auxTransporte !== "Sí" && auxTransporte !== "No" && auxTransporte !== "Si") {
+    errores.aux_transporte = "Sí o No";
+  }
+
+  if (!String(valores.empleado_id || "").trim()) {
+    errores.empleado_id = "Requerido";
+  }
+  if (!String(valores.nombre || "").trim()) {
+    errores.nombre = "Requerido";
+  }
+
+  return { datos: valores, errores };
+}
+
 function importarNomina(evento) {
   const archivo = evento.target.files?.[0];
   if (!archivo) return;
+  if (typeof XLSX === "undefined") {
+    alert("No se pudo cargar la librería XLSX. Revisa tu conexión a internet.");
+    return;
+  }
 
   const lector = new FileReader();
   lector.onload = (e) => {
@@ -258,59 +400,326 @@ function importarNomina(evento) {
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const filas = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    if (filas.length < 2) return;
 
-    const encabezados = filas[0].map((columna) => columna.toLowerCase());
-    const resultados = filas.slice(1).map((fila) => {
-      const datos = Object.fromEntries(encabezados.map((col, i) => [col, fila[i] || ""]));
-      const salarioMensual = Number(datos.salario_mensual || 0);
-      const diasLaborados = clamp(Number(datos.dias_laborados || 0), 1, 30);
-      const aplicaAuxilio = String(datos.auxilio_transporte || "").toLowerCase() === "si";
-      const auxilioBase = Number(datos.auxilio_valor || 0);
-      const horasExtraDiurna = clamp(Number(datos.extra_diurna_horas || 0), 0, 200);
-      const horasExtraNocturna = clamp(Number(datos.extra_nocturna_horas || 0), 0, 200);
-      const horasRecargo = clamp(Number(datos.recargo_horas || 0), 0, 200);
-      const bonificacion = Number(datos.bonificacion || 0);
-      const otrasDeducciones = Number(datos.otras_deducciones || 0);
-      const empleado = datos.empleado || "Sin nombre";
+    if (!filas.length) {
+      mostrarErrores(["El archivo está vacío."]);
+      return;
+    }
 
-      return {
-        empleado,
-        ...calcularNomina({
-          salarioMensual,
-          diasLaborados,
-          aplicaAuxilio,
-          auxilioBase,
-          horasExtraDiurna,
-          horasExtraNocturna,
-          horasRecargo,
-          bonificacion,
-          otrasDeducciones,
-        }),
-      };
+    const encabezados = filas[0].map((columna) => String(columna || "").trim());
+    const errorEncabezado = validarEncabezados(encabezados);
+    if (errorEncabezado) {
+      mostrarErrores([errorEncabezado]);
+      return;
+    }
+
+    previewRows = [];
+    previewErrors = [];
+    filas.slice(1).forEach((fila, index) => {
+      const resultado = validarFila(fila);
+      previewRows.push({
+        index: index + 2,
+        raw: fila,
+        data: resultado.datos,
+      });
+      previewErrors.push(resultado.errores);
     });
 
-    renderMasivo(resultados);
+    currentPage = 1;
+    mostrarErrores(obtenerResumenErrores());
+    renderPreview();
+    actualizarEstadoProcesar();
+    renderDashboard();
   };
   lector.readAsArrayBuffer(archivo);
 }
 
-function renderMasivo(resultados) {
-  tablaMasiva.innerHTML = "";
-  resultados.forEach((resultado) => {
-    const fila = document.createElement("tr");
-    fila.innerHTML = `
-      <td>${resultado.empleado}</td>
-      <td>${formatoCOP.format(resultado.salarioProporcional)}</td>
-      <td>${formatoCOP.format(resultado.auxilioTransporte)}</td>
-      <td>${formatoCOP.format(resultado.extrasTotal)}</td>
-      <td>${formatoCOP.format(resultado.bonificacion)}</td>
-      <td>${formatoCOP.format(resultado.totalDevengado)}</td>
-      <td>${formatoCOP.format(resultado.totalDeducciones)}</td>
-      <td>${formatoCOP.format(resultado.netoPagar)}</td>
-    `;
-    tablaMasiva.appendChild(fila);
+function obtenerResumenErrores() {
+  const errores = [];
+  const filasConError = previewErrors.filter((error) => Object.keys(error).length > 0);
+  if (!previewRows.length) {
+    errores.push("No hay filas para procesar.");
+  }
+  if (filasConError.length) {
+    errores.push(`Hay ${filasConError.length} filas con errores.`);
+  }
+  return errores;
+}
+
+function actualizarEstadoProcesar() {
+  const tieneErrores = previewErrors.some((error) => Object.keys(error).length > 0);
+  if (btnProcesar) {
+    btnProcesar.disabled = !previewRows.length || tieneErrores;
+  }
+}
+
+function renderPreview() {
+  if (!previewHead || !previewBody) return;
+
+  previewHead.innerHTML = "";
+  const headerRow = document.createElement("tr");
+  REQUIRED_HEADERS.forEach((header) => {
+    const th = document.createElement("th");
+    th.textContent = header;
+    headerRow.appendChild(th);
   });
+  const thAccion = document.createElement("th");
+  thAccion.textContent = "Acciones";
+  headerRow.appendChild(thAccion);
+  previewHead.appendChild(headerRow);
+
+  const start = (currentPage - 1) * rowsPerPage;
+  const end = start + rowsPerPage;
+  const pageRows = previewRows.slice(start, end);
+
+  previewBody.innerHTML = "";
+  pageRows.forEach((row, idx) => {
+    const tr = document.createElement("tr");
+    const error = previewErrors[start + idx] || {};
+    REQUIRED_HEADERS.forEach((header) => {
+      const td = document.createElement("td");
+      td.textContent = row.data[header] ?? "";
+      if (error._fila) {
+        td.classList.add("is-invalid");
+        td.title = error._fila;
+      } else if (error[header]) {
+        td.classList.add("is-invalid");
+        td.title = error[header];
+      }
+      tr.appendChild(td);
+    });
+
+    const tdAccion = document.createElement("td");
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button";
+    btnEliminar.className = "secondary";
+    btnEliminar.textContent = "Eliminar";
+    btnEliminar.addEventListener("click", () => eliminarFila(start + idx));
+    tdAccion.appendChild(btnEliminar);
+    tr.appendChild(tdAccion);
+
+    previewBody.appendChild(tr);
+  });
+
+  if (paginaActual) {
+    const totalPages = Math.max(1, Math.ceil(previewRows.length / rowsPerPage));
+    paginaActual.textContent = `Página ${currentPage} de ${totalPages}`;
+    if (btnPrevio) {
+      btnPrevio.disabled = currentPage <= 1;
+    }
+    if (btnSiguiente) {
+      btnSiguiente.disabled = currentPage >= totalPages;
+    }
+  }
+}
+
+function eliminarFila(indice) {
+  previewRows.splice(indice, 1);
+  previewErrors.splice(indice, 1);
+  const totalPages = Math.max(1, Math.ceil(previewRows.length / rowsPerPage));
+  if (currentPage > totalPages) {
+    currentPage = totalPages;
+  }
+  mostrarErrores(obtenerResumenErrores());
+  renderPreview();
+  actualizarEstadoProcesar();
+  renderDashboard();
+}
+
+function procesarLiquidacion() {
+  if (!previewRows.length) {
+    mostrarErrores(["No hay filas para procesar."]);
+    return;
+  }
+  if (previewErrors.some((error) => Object.keys(error).length > 0)) {
+    mostrarErrores(["Corrige los errores antes de procesar."]);
+    return;
+  }
+  processedRows = previewRows.map((row) => {
+    const datos = row.data;
+    const resultado = calcularNomina({
+      salarioMensual: Number(datos.salario_basico_mensual),
+      diasLaborados: Number(datos.dias_laborados),
+      tipoNomina: normalizarTipoNomina(datos.tipo_nomina),
+      aplicaAuxilio: normalizarSiNo(datos.aux_transporte) === "si",
+      auxilioBase: Number(datos.valor_auxilio),
+      horasExtraDiurna: Number(datos.horas_extra_diurnas),
+      horasExtraNocturna: Number(datos.horas_extra_nocturnas),
+      horasRecargo: Number(datos.recargo_dom_fest_horas),
+      bonificacion: Number(datos.bonificacion),
+      otrasDeducciones: Number(datos.otras_deducciones),
+    });
+    return {
+      empleado_id: datos.empleado_id,
+      nombre: datos.nombre,
+      ...resultado,
+    };
+  });
+  selectedRow = processedRows[0] || null;
+  if (selectedRow) {
+    renderResumen(selectedRow);
+  }
+  renderResultados();
+  renderDashboard();
+  mostrarErrores([]);
+}
+
+function renderResultados() {
+  tablaMasiva.innerHTML = "";
+  processedRows.forEach((row) => {
+    const tr = document.createElement("tr");
+    if (row === selectedRow) {
+      tr.classList.add("is-active");
+    }
+    tr.innerHTML = `
+      <td>${row.empleado_id}</td>
+      <td>${row.nombre}</td>
+      <td>${formatoCOP.format(row.salarioProporcional)}</td>
+      <td>${formatoCOP.format(row.auxilioTransporte)}</td>
+      <td>${formatoCOP.format(row.extrasTotal)}</td>
+      <td>${formatoCOP.format(row.bonificacion)}</td>
+      <td>${formatoCOP.format(row.totalDevengado)}</td>
+      <td>${formatoCOP.format(row.totalDeducciones)}</td>
+      <td>${formatoCOP.format(row.netoPagar)}</td>
+      <td>${formatoCOP.format(row.costoTotalEmpresa)}</td>
+    `;
+    tr.addEventListener("click", () => {
+      selectedRow = row;
+      renderResumen(row);
+      renderResultados();
+    });
+    tablaMasiva.appendChild(tr);
+  });
+  if (btnDescargarResultados) {
+    btnDescargarResultados.disabled = !processedRows.length;
+  }
+}
+
+function renderDashboard() {
+  if (!dashboardTotales) return;
+  const empleadosCargados = previewRows.length;
+  const empleadosConError = previewErrors.filter((error) => Object.keys(error).length > 0).length;
+  const empleadosProcesados = processedRows.length;
+  const totales = processedRows.reduce(
+    (acc, row) => {
+      acc.devengado += row.totalDevengado;
+      acc.deducciones += row.totalDeducciones;
+      acc.neto += row.netoPagar;
+      acc.costoEmpresa += row.costoTotalEmpresa;
+      return acc;
+    },
+    { devengado: 0, deducciones: 0, neto: 0, costoEmpresa: 0 }
+  );
+
+  dashboardTotales.innerHTML = "";
+  const agregarFila = (etiqueta, valor) => {
+    const fila = document.createElement("div");
+    fila.className = "summary-row";
+    fila.innerHTML = `<span>${etiqueta}</span><strong>${valor}</strong>`;
+    dashboardTotales.appendChild(fila);
+  };
+
+  agregarFila("Empleados cargados", empleadosCargados);
+  agregarFila("Empleados procesados", empleadosProcesados);
+  agregarFila("Empleados con error", empleadosConError);
+  agregarFila("Total devengado", formatoCOP.format(totales.devengado));
+  agregarFila("Total deducciones", formatoCOP.format(totales.deducciones));
+  agregarFila("Total neto", formatoCOP.format(totales.neto));
+  agregarFila("Costo total empleador", formatoCOP.format(totales.costoEmpresa));
+}
+
+function descargarLiquidacion() {
+  if (typeof XLSX === "undefined") {
+    alert("No se pudo cargar la librería XLSX. Revisa tu conexión a internet.");
+    return;
+  }
+  if (!processedRows.length) {
+    alert("Primero procesa una liquidación.");
+    return;
+  }
+
+  const encabezados = [
+    "empleado_id",
+    "nombre",
+    "salario_proporcional",
+    "auxilio_transporte",
+    "extras_total",
+    "bonificacion",
+    "total_devengado",
+    "total_deducciones",
+    "neto_pagar",
+    "costo_total_empresa",
+  ];
+
+  const filas = processedRows.map((row) => [
+    row.empleado_id,
+    row.nombre,
+    row.salarioProporcional,
+    row.auxilioTransporte,
+    row.extrasTotal,
+    row.bonificacion,
+    row.totalDevengado,
+    row.totalDeducciones,
+    row.netoPagar,
+    row.costoTotalEmpresa,
+  ]);
+
+  const hojaLiquidacion = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+  hojaLiquidacion["!freeze"] = { xSplit: 0, ySplit: 1 };
+  aplicarFormatoCOP(hojaLiquidacion, [2, 3, 4, 5, 6, 7, 8, 9]);
+
+  const resumenHeaders = [
+    "empleados_cargados",
+    "empleados_procesados",
+    "empleados_con_error",
+    "total_devengado",
+    "total_deducciones",
+    "total_neto",
+    "costo_total_empleador",
+  ];
+  const empleadosConError = previewErrors.filter((error) => Object.keys(error).length > 0).length;
+  const resumenTotales = processedRows.reduce(
+    (acc, row) => {
+      acc.devengado += row.totalDevengado;
+      acc.deducciones += row.totalDeducciones;
+      acc.neto += row.netoPagar;
+      acc.costoEmpresa += row.costoTotalEmpresa;
+      return acc;
+    },
+    { devengado: 0, deducciones: 0, neto: 0, costoEmpresa: 0 }
+  );
+
+  const resumenFila = [
+    previewRows.length,
+    processedRows.length,
+    empleadosConError,
+    resumenTotales.devengado,
+    resumenTotales.deducciones,
+    resumenTotales.neto,
+    resumenTotales.costoEmpresa,
+  ];
+
+  const hojaResumen = XLSX.utils.aoa_to_sheet([resumenHeaders, resumenFila]);
+  hojaResumen["!freeze"] = { xSplit: 0, ySplit: 1 };
+  aplicarFormatoCOP(hojaResumen, [3, 4, 5, 6]);
+
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hojaLiquidacion, "Liquidación");
+  XLSX.utils.book_append_sheet(libro, hojaResumen, "Resumen");
+  XLSX.writeFile(libro, "liquidacion_masiva.xlsx");
+}
+
+function aplicarFormatoCOP(hoja, columnas) {
+  const rango = XLSX.utils.decode_range(hoja["!ref"] || "A1");
+  for (let row = rango.s.r + 1; row <= rango.e.r; row += 1) {
+    columnas.forEach((col) => {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+      const cell = hoja[cellAddress];
+      if (cell && typeof cell.v === "number") {
+        cell.z = "\"$\"#,##0";
+      }
+    });
+  }
 }
 
 Object.values(campos).forEach((campo) => {
@@ -344,5 +753,31 @@ if (btnDescargarPlantilla) {
 if (archivoNomina) {
   archivoNomina.addEventListener("change", importarNomina);
 }
+if (btnProcesar) {
+  btnProcesar.addEventListener("click", procesarLiquidacion);
+}
+if (btnDescargarResultados) {
+  btnDescargarResultados.addEventListener("click", descargarLiquidacion);
+}
+if (btnPrevio) {
+  btnPrevio.addEventListener("click", () => {
+    currentPage = Math.max(1, currentPage - 1);
+    renderPreview();
+  });
+}
+if (btnSiguiente) {
+  btnSiguiente.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(previewRows.length / rowsPerPage));
+    currentPage = Math.min(totalPages, currentPage + 1);
+    renderPreview();
+  });
+}
 
+if (btnProcesar) {
+  btnProcesar.disabled = true;
+}
+if (btnDescargarResultados) {
+  btnDescargarResultados.disabled = true;
+}
+renderDashboard();
 calcular();
