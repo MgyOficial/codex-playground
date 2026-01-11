@@ -1,0 +1,79 @@
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1f2933;
+  background-color: #f5f7fa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.page__header {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(31, 41, 51, 0.08);
+}
+
+.page__header h1 {
+  margin-top: 0;
+}
+
+.page__section {
+  margin-top: 24px;
+}
+
+.status-card {
+  margin-top: 12px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e6ed;
+}
+
+.status-card__error {
+  color: #c0392b;
+}
+
+.agenda-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: grid;
+  gap: 16px;
+}
+
+.agenda-list__item {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e6ed;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agenda-list__meta {
+  margin: 4px 0 0;
+  color: #52606d;
+  font-size: 0.9rem;
+}
+
+.agenda-list__description {
+  margin: 0;
+  color: #3e4c59;
+}
+
+.agenda-list__empty {
+  color: #52606d;
+}
